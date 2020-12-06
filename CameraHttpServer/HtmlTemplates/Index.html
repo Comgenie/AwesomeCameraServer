@@ -1,0 +1,65 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Comgenie's Awesome Camera Server</title>
+    <style>
+        body {
+            background-color: #1d1d1d;
+            color: #eee;            
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #feedContainer a {
+            display: inline-block;
+            max-width: 400px;
+            width: 100%;
+            padding: 300px 0px 15px 0px;
+            background-position: center center;
+            background-size: contain;
+            background-repeat: no-repeat;
+            border: 2px solid #333;
+            margin: 5px;
+            text-align: center;
+            color: #eee;
+            text-decoration: none;
+            background-color: #090909;
+            transition: transform ease-in-out 0.2s;
+        }
+        #feedContainer a:hover {
+            transform: scale(1.1);
+        }
+    </style>
+    <script>
+        var feeds = [feeds];
+
+        window.addEventListener("load", function () {
+            var container = document.getElementById("feedContainer");
+            for (var i = 0; i < feeds.length; i++) {
+                let item = document.createElement("a");
+                if (feeds[i].SnapshotSecondsInterval > 0) {
+                    item.BackgroundImageTemplate = "/" + feeds[i].Name + "/snapshot/TIMESTAMP";
+                    item.style.backgroundImage = "url('"+item.BackgroundImageTemplate.replace("TIMESTAMP", new Date().getTime())+"')";
+                    setInterval(function () {
+                        var newImage = new Image();                        
+                        newImage.addEventListener("load", function () {                
+                            item.style.backgroundImage = "url('"+this.src+"')";
+                        });
+                        newImage.src = item.BackgroundImageTemplate.replace("TIMESTAMP", new Date().getTime());
+                    }, feeds[i].SnapshotSecondsInterval * 1000);
+                }
+                item.appendChild(document.createTextNode(feeds[i].Name))
+                item.href = "/" + feeds[i].Name;
+                container.appendChild(item);
+            }
+        });
+    </script>
+</head>
+<body>
+    <h1>Comgenie's Awesome Camera Server</h1>
+    <div id="feedContainer">
+
+    </div>
+</body>
+</html>

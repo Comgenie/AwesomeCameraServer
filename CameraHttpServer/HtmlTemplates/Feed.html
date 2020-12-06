@@ -1,0 +1,46 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>[name] - Comgenie's Awesome Camera Server</title>
+    <style>
+        body {
+            background-color: #1d1d1d;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .menuBar {
+            background-color: #333;
+            padding: 5px;
+            max-width: 400px;
+            margin-bottom: 15px;
+        }
+        a {
+            color: #eee;
+        }
+        #image {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div><a href="/">View all feeds</a></div>
+    <h1>[name]</h1>
+    <div class="menuBar">
+        Max refresh rate: 
+        <select onchange="document.getElementById('image').src = '/[name]/mjpeg' + this.value;">
+            <option value="/1">1 fps</option>
+            <option value="/5" selected>5 fps</option>
+            <option value="/15">15 fps</option>
+            <option value="/30">30 fps</option>
+            <option value="/60">60 fps</option>
+            <option value="">Unlimited</option>
+        </select>
+        <a href="/[name]/stream">Open stream</a>
+    </div>
+    <div>
+        <img src="/[name]/mjpeg/5" id="image" />
+    </div>
+</body>
+</html>

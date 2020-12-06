@@ -1,0 +1,27 @@
+﻿{
+  "Username": null,
+  "Password": null,
+  "Port": 8082,
+  "Feeds": [
+    {
+      "Name": "video0",
+      "InputProcessName": "v4l2-ctl",
+      "InputProcessArguments": "--device /dev/video0 --set-fmt-video=width=1280,height=720,pixelformat=JPEG --stream-mmap --stream-count=-1 --stream-to=-",
+
+      "OutputProcessName": "ffmpeg",
+      "OutputProcessArguments": "-f mjpeg -re -vsync 1 -i pipe:0 -vf format=yuv420p -c:v libx264 -profile:v main -an -preset ultrafast -x264opts keyint=10:min-keyint=10:no-scenecut -an -tune fastdecode -tune zerolatency -f mp4 -movflags frag_keyframe+empty_moov+faststart -r 10 -crf 30 -bufsize 5M pipe:1",
+      "OutputContentType": "video/mp4",
+
+      "MotionDetectionPercentage": 3,
+      "MotionColorIgnorePercentage": 2,
+      "MotionDetectionFrameCount": 2,
+      "MotionDetectionSecondsBetweenFrames": 1,
+      "MotionProcessName": "ffmpeg",
+      "MotionProcessArguments": "-f mjpeg -re -vsync 1 -i pipe:0 -vf format=yuv420p -c:v libx264 -profile:v main -an -preset ultrafast -x264opts keyint=10:min-keyint=10:no-scenecut -an -tune fastdecode -tune zerolatency -f mp4 -movflags frag_keyframe+empty_moov+faststart -r 10 -crf 30 -bufsize 5M pipe:1",
+      "MotionRecordingFileName": "[name]_[yyyyMMdd HHmmss].mp4",
+      "MotionSecondsLinger": 10,
+
+      "SnapshotSecondsInterval": 1
+    }
+  ]
+}
