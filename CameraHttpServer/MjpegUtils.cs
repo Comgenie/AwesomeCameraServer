@@ -163,11 +163,11 @@ namespace CameraHttpServer
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
-                    CreateNoWindow = true,
+                    CreateNoWindow = true,                    
                     Arguments = resultProcessArguments,
                     FileName = resultProcessName
                 },
-                EnableRaisingEvents = true
+                EnableRaisingEvents = true                
             };
 
             process.ErrorDataReceived += (sender, eventArgs) =>
@@ -179,11 +179,33 @@ namespace CameraHttpServer
             process.BeginErrorReadLine();
             var outputStream = process.StandardOutput.BaseStream;
             var inputStream = process.StandardInput.BaseStream;
-
+            
+            
+            var isClosing = false;
             Action closeProcess = () =>
-            {                
-                // We'll try to close the process by ending the input/output pipes first, so ffmpeg can free up any gpu memory allocations.
+            {
+                if (isClosing)
+                    return;
+                isClosing = true;
+                Console.WriteLine("Starting to close process");
+                // We'll try to close the process by ending the input pipe first, so ffmpeg can free up any gpu memory allocations.
+                inputStream.Flush();
                 inputStream.Close();
+
+                var start = DateTime.UtcNow;
+                byte[] temp = new byte[1000];
+                try
+                {
+                    while ((DateTime.UtcNow - start).TotalSeconds < 5)
+                    {
+                        if (outputStream.Read(temp, 0, temp.Length) == 0) // Make sure there is no data waiting, otherwise defunct processes might appear
+                            break;
+                    }
+                }
+                catch (Exception e) {
+                    Console.WriteLine("closeProcess() exception 1: " + e.Message);
+                }
+
                 outputStream.Close();
                 resultStream.Close();
                 try
@@ -191,13 +213,29 @@ namespace CameraHttpServer
                     process.CloseMainWindow();
                     process.WaitForExit(1000);
                 }
-                catch { }
+                catch (Exception e)
+                {
+                    Console.WriteLine("closeProcess() exception 2: " + e.Message);
+                }
 
                 try
                 {
                     process.Kill();
                 }
-                catch { }
+                catch (Exception e)
+                {
+                    Console.WriteLine("closeProcess() exception 3: " + e.Message);
+                }
+
+                try
+                {
+                    process.Dispose();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("closeProcess() exception 4: " + e.Message);
+                }
+                Console.WriteLine("Closed process");
             };
 
             MjpegUtils.BeginJpegsFromProcessWithMjpegOutput(processName, arguments, (buffer, offset, count) =>
@@ -218,13 +256,17 @@ namespace CameraHttpServer
                     closeProcess();
                     return false;
                 }
-                return resultStream.CanWrite && (shouldKeepGoing == null || shouldKeepGoing()); // Keep going
+
+                var shouldRequestNextJpeg = inputStream.CanWrite && resultStream.CanWrite && (shouldKeepGoing == null || shouldKeepGoing());
+                if (!shouldRequestNextJpeg)
+                    closeProcess(); 
+                return shouldRequestNextJpeg;
             });
 
             var outputSendThread = new Thread(new ThreadStart(() =>
             {
                 byte[] buffer = new byte[1024 * 1024 * 1];
-                while (resultStream.CanWrite && outputStream.CanRead && inputStream.CanWrite && (shouldKeepGoing == null || shouldKeepGoing()))
+                while (inputStream.CanWrite && resultStream.CanWrite && outputStream.CanRead && (shouldKeepGoing == null || shouldKeepGoing()))
                 {
                     var len = outputStream.Read(buffer);
                     try

@@ -18,7 +18,8 @@ namespace CameraHttpServer
     {        
         static bool IsRunning = true;
         static Configuration Configuration = null;
-        static Dictionary<string, ConfigurationFeed> ConfigurationFeeds = null;                
+        static Dictionary<string, ConfigurationFeed> ConfigurationFeeds = null;
+        static TcpListener Server = null;
         static void Main(string[] args)
         {
             if (!File.Exists("config.json"))
@@ -34,12 +35,12 @@ namespace CameraHttpServer
             foreach (var feed in Configuration.Feeds.Where(a=>a.SnapshotSecondsInterval > 0 || a.MotionDetectionPercentage > 0))
                 StartCaptureAndMotionDetection(feed);
 
-            var server = new TcpListener(IPAddress.Any, Configuration.Port == 0 ? 8082 : Configuration.Port);
-            server.Start();
+            Server = new TcpListener(IPAddress.Any, Configuration.Port == 0 ? 8082 : Configuration.Port);
+            Server.Start();
 
             while (IsRunning)
             {
-                var client = server.AcceptSocket();
+                var client = Server.AcceptSocket();
                 new Thread(new ThreadStart(() =>
                 {
                     var keepAlive = false;
@@ -65,7 +66,8 @@ namespace CameraHttpServer
                     }
                 })).Start();
             }
-            server.Stop();            
+
+            Server.Stop();
 
             foreach (var feed in ConfigurationFeeds)
             {
@@ -141,7 +143,7 @@ namespace CameraHttpServer
                 socket.Send(ASCIIEncoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Type: text/html\r\n\r\n" + page));
                 return false;
             } else if (requestFeed == "shutdown") {                
-                socket.Send(ASCIIEncoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Type: text/html\r\n\r\nServer shut down"));
+                socket.Send(ASCIIEncoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Type: text/html\r\n\r\nServer shut down"));                
                 IsRunning = false;
                 return false;
             }
@@ -333,13 +335,14 @@ namespace CameraHttpServer
             int motionDetectionCurrentFrameLength = 0;
             
             Thread motionDetectionThread = null;
+            var motionDetectionThreadIsRunning = true;
             
             if (feed.MotionDetectionPercentage > 0)
             {
                 motionDetectionThread = new Thread(new ThreadStart(() =>
                 {
                     Console.WriteLine("Starting motion detection thread");
-                    while (IsRunning)
+                    while (IsRunning && motionDetectionThreadIsRunning)
                     {
 
                         if (motionDetectionCurrentFrameLength == 0)
@@ -408,14 +411,19 @@ namespace CameraHttpServer
                         }
                         motionDetectionLastFrame = newFrame;
                     }
+                    Console.WriteLine("Ending motion detection thread");
                 }));
                 motionDetectionThread.Start();
             }
 
             MjpegUtils.BeginJpegsFromProcessWithMjpegOutput(feed.InputProcessName, feed.InputProcessArguments, (buffer, offset, count) =>
             {
-                if (buffer == null) // process ended, todo: restart
-                    return false; 
+                if (buffer == null)
+                {
+                    // process ended, todo: restart
+                    motionDetectionThreadIsRunning = false;
+                    return false;
+                }
                     
                 if (feed.SnapshotSecondsInterval > 0 && (DateTime.UtcNow - lastSnapshot).TotalSeconds >= feed.SnapshotSecondsInterval)
                 {
@@ -441,7 +449,7 @@ namespace CameraHttpServer
                         Buffer.BlockCopy(buffer, offset, motionDetectionCurrentFrame, 0, count);
                         motionDetectionCurrentFrameLength = count;
                     }
-                }
+                }                
                 return IsRunning; // Keep going
             });
         }        
